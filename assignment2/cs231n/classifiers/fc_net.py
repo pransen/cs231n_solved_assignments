@@ -185,12 +185,16 @@ class FullyConnectedNet(object):
             if i == 0:
                 self.params['W'+str(i+1)] = np.random.randn(input_dim, hidden_dims[i]) * weight_scale
                 self.params['b'+str(i+1)] = np.zeros(hidden_dims[i])
+                self.params['gamma'+str(i+1)] = np.ones(hidden_dims[i])
+                self.params['beta'+str(i+1)] = np.zeros(hidden_dims[i])
             elif i == self.num_layers - 1:
                 self.params['W'+str(i+1)] = np.random.randn(hidden_dims[i - 1], num_classes) * weight_scale
                 self.params['b'+str(i+1)] = np.zeros(num_classes)
             else:
                 self.params['W'+str(i+1)] = np.random.randn(hidden_dims[i-1], hidden_dims[i]) * weight_scale
                 self.params['b'+str(i+1)] = np.zeros(hidden_dims[i])
+                self.params['gamma'+str(i+1)] = np.ones(hidden_dims[i])
+                self.params['beta'+str(i+1)] = np.zeros(hidden_dims[i])
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -256,6 +260,11 @@ class FullyConnectedNet(object):
             b = self.params['b' + str(i+1)]
             out, cache = affine_forward(out, W, b)
             cached_fwd_pass['layer' + str(i+1)] = cache
+            if self.normalization=='batchnorm' and i != self.num_layers - 1:
+                gamma = self.params['gamma'+str(i+1)]
+                beta = self.params['beta'+str(i+1)]
+                out, cache = batchnorm_forward(out, gamma, beta, self.bn_params[i])
+                cached_fwd_pass['batch_norm' + str(i+1)] = cache
             if i != self.num_layers - 1:
                 out, cache = relu_forward(out)
                 cached_fwd_pass['relu' + str(i+1)] = cache
@@ -292,6 +301,11 @@ class FullyConnectedNet(object):
             if i != self.num_layers - 1:
                 cache = cached_fwd_pass['relu' + str(i+1)]
                 dout = relu_backward(dout, cache)
+                cache = cached_fwd_pass['batch_norm' + str(i+1)]
+                dout, dgamma, dbeta = batchnorm_backward(dout, cache)
+                grads['gamma'+str(i+1)] = dgamma
+                grads['gbeta'+str(i+1)] = dbeta
+                beta = self.params['beta'+str(i+1)]
             W = self.params['W' + str(i+1)]
             cache = cached_fwd_pass['layer' + str(i+1)]
             dout, dW, db = affine_backward(dout, cache)
